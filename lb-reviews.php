@@ -5,7 +5,7 @@
  * Version:           1.2.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
- * Update URI:        https://github.com/lb-reviews
+ * Update URI:        https://github.com/thisisnotmeff/lb-reviews
  * Author:            Lucilla Bellini Portraits
  * Text Domain:       lb-reviews
  * License:           GPL-2.0-or-later
@@ -19,7 +19,7 @@ define( 'LBR_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LBR_URL', plugin_dir_url( __FILE__ ) );
 // GitHub repository used for updates (owner/repo).
 if ( ! defined( 'LBR_GITHUB_REPO' ) ) {
-	define( 'LBR_GITHUB_REPO', '' );
+	define( 'LBR_GITHUB_REPO', 'thisisnotmeff/lb-reviews' );
 }
 
 require_once LBR_DIR . 'includes/class-lbr-settings.php';
