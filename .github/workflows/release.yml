@@ -1,0 +1,48 @@
+# Push a tag like v1.2.0 → builds lb-reviews.zip and publishes a GitHub Release.
+# WordPress sites with the plugin installed then see the update on the Plugins screen.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that the tag matches the plugin version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          HEADER=$(grep -m1 -E '^\s*\*\s*Version:' lb-reviews.php | sed -E 's/.*Version:\s*//; s/\s*$//')
+          CONST=$(grep -m1 "define( 'LBR_VERSION'" lb-reviews.php | sed -E "s/.*'LBR_VERSION', '([^']+)'.*/\1/")
+          echo "tag=$TAG header=$HEADER constant=$CONST"
+          if [ "$TAG" != "$HEADER" ] || [ "$TAG" != "$CONST" ]; then
+            echo "::error::Tag v$TAG does not match Version ($HEADER) / LBR_VERSION ($CONST) in lb-reviews.php"
+            exit 1
+          fi
+
+      - name: Lint PHP
+        run: find . -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Build lb-reviews.zip
+        run: |
+          mkdir -p build/lb-reviews
+          rsync -a ./ build/lb-reviews/ \
+            --exclude '.git' --exclude '.github' --exclude 'build' \
+            --exclude '.gitignore' --exclude '.gitattributes' --exclude 'README.md'
+          cd build && zip -rq ../lb-reviews.zip lb-reviews
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES=$(awk '/^== Changelog ==/{f=1;next} f&&/^[0-9]/{if(n++)exit} f' readme.txt)
+          gh release create "$GITHUB_REF_NAME" lb-reviews.zip \
+            --title "LB Reviews $GITHUB_REF_NAME" \
+            --notes "${NOTES:-Release $GITHUB_REF_NAME}"
