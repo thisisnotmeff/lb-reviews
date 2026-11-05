@@ -1,14 +1,22 @@
-# Push a tag like v1.2.0 → builds lb-reviews.zip and publishes a GitHub Release.
+# Publishes a GitHub Release with lb-reviews.zip whenever the plugin version changes on main
+# (or when a tag like v1.2.0 is pushed, or when run by hand from the Actions tab).
 # WordPress sites with the plugin installed then see the update on the Plugins screen.
 name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -16,21 +24,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check that the tag matches the plugin version
+      - name: Read the plugin version
+        id: version
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
           HEADER=$(grep -m1 -E '^\s*\*\s*Version:' lb-reviews.php | sed -E 's/.*Version:\s*//; s/\s*$//')
           CONST=$(grep -m1 "define( 'LBR_VERSION'" lb-reviews.php | sed -E "s/.*'LBR_VERSION', '([^']+)'.*/\1/")
-          echo "tag=$TAG header=$HEADER constant=$CONST"
-          if [ "$TAG" != "$HEADER" ] || [ "$TAG" != "$CONST" ]; then
-            echo "::error::Tag v$TAG does not match Version ($HEADER) / LBR_VERSION ($CONST) in lb-reviews.php"
+          echo "header=$HEADER constant=$CONST ref=$GITHUB_REF"
+          if [ "$HEADER" != "$CONST" ]; then
+            echo "::error::Version header ($HEADER) and LBR_VERSION ($CONST) differ in lb-reviews.php"
             exit 1
+          fi
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$HEADER" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match the plugin version $HEADER"
+            exit 1
+          fi
+          echo "version=$HEADER" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if this version is already released
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "Release v${{ steps.version.outputs.version }} already exists: nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Lint PHP
+        if: steps.exists.outputs.skip == 'false'
         run: find . -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
 
       - name: Build lb-reviews.zip
+        if: steps.exists.outputs.skip == 'false'
         run: |
           mkdir -p build/lb-reviews
           rsync -a ./ build/lb-reviews/ \
@@ -39,10 +66,13 @@ jobs:
           cd build && zip -rq ../lb-reviews.zip lb-reviews
 
       - name: Publish release
+        if: steps.exists.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          V="v${{ steps.version.outputs.version }}"
           NOTES=$(awk '/^== Changelog ==/{f=1;next} f&&/^[0-9]/{if(n++)exit} f' readme.txt)
-          gh release create "$GITHUB_REF_NAME" lb-reviews.zip \
-            --title "LB Reviews $GITHUB_REF_NAME" \
-            --notes "${NOTES:-Release $GITHUB_REF_NAME}"
+          gh release create "$V" lb-reviews.zip \
+            --target "$GITHUB_SHA" \
+            --title "LB Reviews $V" \
+            --notes "${NOTES:-Release $V}"

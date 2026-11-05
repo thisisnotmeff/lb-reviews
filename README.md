@@ -32,15 +32,11 @@ All attributes: **LB Reviews → Settings & import → How to use** in WordPress
 
 ## Releasing a new version
 
-1. Update the version in `lb-reviews.php` (header `Version:` and `LBR_VERSION`) and add a line to the changelog in `readme.txt`.
-2. Commit and push.
-3. Create and push a tag with the same version:
-   ```
-   git tag v1.2.0
-   git push origin v1.2.0
-   ```
+1. Update the version in `lb-reviews.php` (header `Version:` and `LBR_VERSION`, same number) and add a line to the changelog in `readme.txt`.
+2. Commit and push to `main`.
 
-The GitHub Action builds `lb-reviews.zip` and publishes the release.
+The GitHub Action sees the new version, builds `lb-reviews.zip` and publishes the release `vX.Y.Z`
+(pushes that don't change the version are ignored). It can also be run by hand from the **Actions** tab.
 Sites with the plugin installed see the update within a few hours, or right away with
 **Plugins → LB Reviews → Check for updates**.
 
