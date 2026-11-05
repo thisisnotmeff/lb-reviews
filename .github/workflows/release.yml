@@ -62,7 +62,7 @@ jobs:
           mkdir -p build/lb-reviews
           rsync -a ./ build/lb-reviews/ \
             --exclude '.git' --exclude '.github' --exclude 'build' \
-            --exclude '.gitignore' --exclude '.gitattributes' --exclude 'README.md'
+            --exclude '.gitignore' --exclude '.gitattributes' --exclude 'README.md' --exclude 'CLAUDE.md'
           cd build && zip -rq ../lb-reviews.zip lb-reviews
 
       - name: Publish release
